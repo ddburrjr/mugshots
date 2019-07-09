@@ -4,7 +4,7 @@ from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
-from dbpackages import db_connect
+from dbpackages import db_connect, db_search
 
 
 class Locators:
@@ -139,13 +139,6 @@ class Mugshot:
         self.curr_record = 1
         self.get_slide_data()
 
-    def find_db_rec(self, query=None):
-        if query is not None:
-            self.cursor.execute(query)
-            return self.cursor.fetchone() is not None
-        else:
-            raise
-
     def booking_date(self,str_data):
         # parameter format: 'Saturday, Jul 06, 2019'
         temp = str_data.split(' ')
@@ -202,7 +195,7 @@ class Mugshot:
                 [rec_no, case_id, last_name, first_name, sex, race,
                  county, arrest, booked, url, file, charges])
 
-            if not self.find_db_rec(self.SEL_INMATE.format(case_id)):
+            if not db_search(self.cursor, self.SEL_INMATE.format(case_id)):
                 inmate_args = (case_id, last_name, first_name, sex, race, county, arrest, booked, url, file)
                 self.cursor.execute(self.INS_INMATE_QRY, inmate_args)
                 for item in charges:
@@ -212,7 +205,12 @@ class Mugshot:
 
 
 def main():
-    with Mugshot(1, date(2019, 6, 26), date(2019, 6, 27)) as ms:
+
+    date_from = date(2019, 6, 12)
+    date_to = date(2019, 6, 13)
+    county_opt = 1
+
+    with Mugshot(county_opt, date_from, date_to) as ms:
         for _ in range(ms.current_slide, ms.total_slides+1):
             time.sleep(.5)
             ms.next_slide()
