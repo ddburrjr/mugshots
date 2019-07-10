@@ -1,10 +1,21 @@
-import time, os
-from datetime import date
+import time, os, logging
+from datetime import date, datetime
 from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 from dbpackages import db_connect, db_search
+
+base_dir = os.path.abspath(os.path.dirname(__file__))
+log_dir = os.path.join(base_dir, 'logs/')
+log_file = f"{log_dir}ms-{datetime.now():%Y%m%d.%s}.log"
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+file_handler = logging.FileHandler(log_file)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 
 class Locators:
@@ -35,8 +46,6 @@ class Locators:
 
 
 class Mugshot:
-    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    IMAGE_DIR = os.path.join(BASE_DIR, 'images') + '/'
     WEB_PAGE = 'http://mugshots.sun-sentinel.com/'
     HEADLESS = '--headless'
     COUNTY_OPTIONS = [
@@ -180,16 +189,16 @@ class Mugshot:
             case_id = self.slide_case_id(url)
             charge_element = drv.find_element_by_css_selector(sel + Locators.css_sel[8])
 
-            print(f'case: {case_id} - {first_name} {last_name} who is a {race} '
+            logger.debug(f'case: {case_id} - {first_name} {last_name} who is a {race} '
                   f'{sex} of {county}. arrested by {arrest} on {booked} for:')
 
             charges = []
             for charge in charge_element.find_elements_by_tag_name(Locators.li_tag):
                 charges.append(charge.text)
 
-                print(charge.text)
+            logger.debug(charges)
 
-            print(f"REC NO: {rec_no:0=4} URL: {url} FILE: {file}", end='\n\n')
+            logger.debug(f"REC: {rec_no:0=4} of {self.total_records:0=4} URL: {url} FILE: {file}")
 
             self.slides.append(
                 [rec_no, case_id, last_name, first_name, sex, race,
@@ -206,15 +215,15 @@ class Mugshot:
 
 def main():
 
-    date_from = date(2019, 6, 12)
-    date_to = date(2019, 6, 13)
+    date_from = date(2019, 6, 22)
+    date_to = date(2019, 6, 23)
     county_opt = 1
 
     with Mugshot(county_opt, date_from, date_to) as ms:
         for _ in range(ms.current_slide, ms.total_slides+1):
             time.sleep(.5)
             ms.next_slide()
-        print(ms)
+        logger.info(ms)
 
 
 if __name__ == "__main__":
