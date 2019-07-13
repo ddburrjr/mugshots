@@ -5,7 +5,7 @@ from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
-from dbpackages import db_connect, db_search
+from dbpackages import SqlDB
 from app_utils import gen_stamp
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
@@ -95,15 +95,13 @@ class Mugshot:
         self.driver = webdriver.Firefox(firefox_options=self.options)
         # self.driver = webdriver.Firefox()
         self.driver.get(self.WEB_PAGE)
-        self.db = db_connect()
-        self.cursor = self.db.cursor()
+        self.db = SqlDB()
         self.filter_search()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.driver.quit()
-        self.cursor.close()
-        self.db.close()
+        self.db.shutdown()
 
     def __repr__(self):
         return f"Mugshot( filtered_by: [ area='{self.COUNTY_OPTIONS[self.by_area]}', " \
@@ -148,7 +146,7 @@ class Mugshot:
         # Select To Filter By
         drv.find_element_by_id(Locators.latest_id).click()
         self.datepicker_filter(self.date_to.month-1, self.date_to.day-1)
-        time.sleep(3)
+        time.sleep(1.5)
         # Click on search button
         drv.find_element_by_css_selector(Locators.css_search).click()
         time.sleep(1)
@@ -213,13 +211,12 @@ class Mugshot:
                 [rec_no, case_id, last_name, first_name, sex, race,
                  county, arrest, booked, url, file, charges])
 
-            if not db_search(self.cursor, self.SEL_INMATE.format(case_id)):
+            if not self.db.search(self.SEL_INMATE.format(case_id)):
                 inmate_args = (case_id, last_name, first_name, sex, race, county, arrest, booked, url, file)
-                self.cursor.execute(self.INS_INMATE_QRY, inmate_args)
+                self.db.insert(self.INS_INMATE_QRY, inmate_args, commit=True)
                 for item in charges:
                     charge_args = (case_id, item)
-                    self.cursor.execute(self.INS_CHARGE_QRY, charge_args)
-                self.db.commit()
+                    self.db.insert(self.INS_CHARGE_QRY, charge_args, commit=True)
 
 
 def main():
