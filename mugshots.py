@@ -1,21 +1,30 @@
 import time, os, logging
+from dotenv import load_dotenv
 from datetime import date, datetime
 from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 from dbpackages import db_connect, db_search
+from app_utils import gen_stamp
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
-log_dir = os.path.join(base_dir, 'logs/')
-log_file = f"{log_dir}ms-{datetime.now():%Y%m%d.%s}.log"
+load_dotenv(os.path.join(base_dir, '.env'))
+
+log_dir = os.path.join(base_dir, os.getenv('LOG_DIR'))
+log_file = os.path.join(log_dir, f"{os.getenv('LOG_FILE')}-{gen_stamp()}.log")
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
-file_handler = logging.FileHandler(log_file)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+fh = logging.FileHandler(log_file)
+fh.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter(os.getenv('LOG_FORMAT'))
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 
 class Locators:
@@ -46,7 +55,7 @@ class Locators:
 
 
 class Mugshot:
-    WEB_PAGE = 'http://mugshots.sun-sentinel.com/'
+    WEB_PAGE = os.getenv('WEB_PAGE')
     HEADLESS = '--headless'
     COUNTY_OPTIONS = [
         'Broward County',
@@ -189,16 +198,16 @@ class Mugshot:
             case_id = self.slide_case_id(url)
             charge_element = drv.find_element_by_css_selector(sel + Locators.css_sel[8])
 
-            logger.debug(f'case: {case_id} - {first_name} {last_name} who is a {race} '
+            logger.info(f'case: {case_id} - {first_name} {last_name} who is a {race} '
                   f'{sex} of {county}. arrested by {arrest} on {booked} for:')
 
             charges = []
             for charge in charge_element.find_elements_by_tag_name(Locators.li_tag):
                 charges.append(charge.text)
 
-            logger.debug(charges)
+            logger.info(charges)
 
-            logger.debug(f"REC: {rec_no:0=4} of {self.total_records:0=4} URL: {url} FILE: {file}")
+            logger.info(f"REC: {rec_no:0=4} of {self.total_records:0=4} URL: {url} FILE: {file}")
 
             self.slides.append(
                 [rec_no, case_id, last_name, first_name, sex, race,
@@ -215,8 +224,8 @@ class Mugshot:
 
 def main():
 
-    date_from = date(2019, 6, 22)
-    date_to = date(2019, 6, 23)
+    date_from = date(2019, 6, 10)
+    date_to = date(2019, 6, 11)
     county_opt = 1
 
     with Mugshot(county_opt, date_from, date_to) as ms:
